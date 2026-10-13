@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}기준정보{% endblock %}
+{% block body %}
+<h1>기준정보</h1>
+<div class="card">
+  <p>엑셀(xlsx) 첫 시트의 헤더를 사용합니다. 거래처: <b>거래처코드, 거래처명, 별칭</b> / 품목: <b>품목명, 단위, 별칭</b> (별칭은 쉼표로 구분).</p>
+  <div class="row">
+    {% for kind, label in [('customers', '거래처'), ('items', '품목')] %}
+    <form method="post" action="{{ url_for('masters_import') }}" enctype="multipart/form-data" class="row">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <input type="file" name="file" accept=".xlsx,.xlsm" required>
+      <button>{{ label }} 업로드</button>
+    </form>
+    {% endfor %}
+    <form method="post" action="{{ url_for('masters_rematch') }}"><button class="sec">미검수 기록 재매칭</button></form>
+  </div>
+</div>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+  <div class="card"><h2>거래처 ({{ customers | length }})</h2>
+    <table><tr><th>코드</th><th>거래처명</th><th>별칭</th></tr>
+      {% for c in customers %}<tr><td>{{ c.code }}</td><td>{{ c.name }}</td><td>{{ c.aliases or '' }}</td></tr>
+      {% else %}<tr><td colspan="3" class="mute">없음</td></tr>{% endfor %}</table></div>
+  <div class="card"><h2>품목 ({{ items | length }})</h2>
+    <table><tr><th>품목명</th><th>단위</th><th>별칭</th></tr>
+      {% for i in items %}<tr><td>{{ i.name }}</td><td>{{ i.unit or '' }}</td><td>{{ i.aliases or '' }}</td></tr>
+      {% else %}<tr><td colspan="3" class="mute">없음</td></tr>{% endfor %}</table></div>
+</div>
+{% endblock %}

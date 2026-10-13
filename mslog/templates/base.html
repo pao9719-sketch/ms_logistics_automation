@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}납품물량 자동 인식·검증{% endblock %} - MS가스</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1f2933; --mute:#6b7785; --line:#d9dee5; --brand:#1d4e89;
+          --ok:#1b7f4b; --warn:#b26a00; --err:#b3261e; --unc:#fff4d6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14181d; --card:#1d232a; --ink:#e6e9ed; --mute:#98a2ae; --line:#323b45; --brand:#6aa5e8;
+            --ok:#4cc38a; --warn:#e0a13a; --err:#ff8a80; --unc:#3d3416; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 "Malgun Gothic",system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:0 16px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  header a { color:#fff; text-decoration:none; padding:12px 4px; }
+  header a:hover { text-decoration:underline; }
+  header .sp { flex:1; }
+  header form { display:flex; gap:6px; align-items:center; margin:0; }
+  main { padding:16px; max-width:1500px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:14px; }
+  h1 { font-size:20px; margin:4px 0 12px; } h2 { font-size:16px; margin:0 0 10px; }
+  table { border-collapse:collapse; width:100%; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  th { background:var(--bg); font-weight:600; white-space:nowrap; }
+  td.r, th.r { text-align:right; }
+  input, select, textarea, button { font:inherit; color:inherit; }
+  input[type=text], input[type=date], input[type=search], select, textarea {
+    background:var(--card); border:1px solid var(--line); border-radius:4px; padding:4px 6px; }
+  button, .btn { background:var(--brand); color:#fff; border:0; border-radius:4px; padding:5px 12px; cursor:pointer;
+                 text-decoration:none; display:inline-block; }
+  button.sec, .btn.sec { background:transparent; color:var(--brand); border:1px solid var(--brand); }
+  button.danger { background:var(--err); }
+  .flash { padding:8px 12px; border-radius:4px; margin-bottom:8px; }
+  .flash.ok { background:color-mix(in srgb, var(--ok) 15%, var(--card)); border:1px solid var(--ok); }
+  .flash.error { background:color-mix(in srgb, var(--err) 15%, var(--card)); border:1px solid var(--err); }
+  .tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; border:1px solid var(--line); }
+  .tag.err { color:var(--err); border-color:var(--err); } .tag.warn { color:var(--warn); border-color:var(--warn); }
+  .tag.ok { color:var(--ok); border-color:var(--ok); } .tag.mute { color:var(--mute); }
+  .mute { color:var(--mute); } .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .grid { display:grid; gap:14px; }
+  @media (min-width: 1000px) { .split { grid-template-columns: minmax(320px, 5fr) 7fr; } }
+  .unc { background:var(--unc); outline:1px solid var(--warn); }
+  .viewer { position:sticky; top:8px; max-height:calc(100vh - 24px); overflow:auto; }
+  .viewer img { max-width:100%; } .viewer iframe { width:100%; height:80vh; border:0; }
+  .fields { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .fields label { display:block; font-size:12px; color:var(--mute); }
+  .fields input, .fields select { width:100%; }
+  .stats { display:flex; gap:10px; flex-wrap:wrap; }
+  .stat { border:1px solid var(--line); border-radius:6px; padding:8px 14px; background:var(--card); text-decoration:none; color:inherit; }
+  .stat b { font-size:20px; display:block; }
+  details summary { cursor:pointer; color:var(--brand); }
+</style>
+</head>
+<body>
+<header>
+  <strong>MS가스 납품물량 자동 인식·검증</strong>
+  <a href="{{ url_for('index') }}">납품자료</a>
+  <a href="{{ url_for('findings') }}">오류 검증</a>
+  <a href="{{ url_for('reports') }}">집계·엑셀</a>
+  <a href="{{ url_for('masters_page') }}">기준정보</a>
+  <span class="sp"></span>
+  <form method="post" action="{{ url_for('set_operator') }}">
+    <label>담당자 <input type="text" name="operator" value="{{ operator }}" size="8"></label>
+    <button class="sec" style="color:#fff;border-color:#fff">변경</button>
+  </form>
+</header>
+<main>
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}
+    <div class="flash {{ cat }}">{{ msg }}</div>
+  {% endfor %}
+  {% block body %}{% endblock %}
+</main>
+</body>
+</html>

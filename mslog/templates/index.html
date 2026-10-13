@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block body %}
+{% if not has_c or not has_i %}
+<div class="flash error">
+  {% if not has_c %}거래처 기준정보가 비어 있어 거래처 코드 매칭·검증이 동작하지 않습니다.{% endif %}
+  {% if not has_i %}품목 기준정보가 비어 있어 품목 매칭 검증이 동작하지 않습니다.{% endif %}
+  <a href="{{ url_for('masters_page') }}">기준정보 등록</a>
+</div>
+{% endif %}
+{% if not ocr_enabled %}
+<div class="flash">AI 인식이 꺼져 있습니다(ANTHROPIC_API_KEY 미설정). 이미지/PDF는 '인식대기'로 등록되며 수동 입력하거나 엑셀을 업로드하세요.</div>
+{% endif %}
+
+<div class="stats" style="margin-bottom:14px">
+  {% for t in order %}
+    <a class="stat" href="{{ url_for('findings', type=t) }}"><b>{{ counts.get(t, 0) }}</b>{{ t }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>납품 자료 업로드</h2>
+  <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="row">
+    <select name="doc_type">{% for t in DOC_TYPES %}<option>{{ t }}</option>{% endfor %}</select>
+    <input type="file" name="files" multiple accept=".png,.jpg,.jpeg,.webp,.pdf,.xlsx,.xlsm" required>
+    <button>업로드 및 인식</button>
+    <span class="mute">이미지·PDF·엑셀(xlsx) / 동일 파일은 중복 등록되지 않습니다.</span>
+  </form>
+</div>
+
+<div class="card">
+  <form method="get" class="row" style="margin-bottom:10px">
+    <input type="search" name="q" value="{{ q }}" placeholder="파일명·차량번호·거래처">
+    <select name="doc_type"><option value="">문서 전체</option>
+      {% for t in DOC_TYPES %}<option {{ 'selected' if t == doc_type }}>{{ t }}</option>{% endfor %}</select>
+    <select name="state">
+      <option value="">상태 전체</option>
+      <option value="pending" {{ 'selected' if state == 'pending' }}>검수 대기 있음</option>
+      <option value="error" {{ 'selected' if state == 'error' }}>오류 있음</option>
+    </select>
+    <button class="sec">조회</button>
+  </form>
+  <table>
+    <tr><th>#</th><th>등록일시</th><th>구분</th><th>파일명</th><th>납품일자</th><th>차량번호</th>
+        <th>AI 인식</th><th class="r">기록</th><th class="r">검수대기</th><th class="r">오류</th><th>등록자</th></tr>
+    {% for x in docs %}
+    <tr>
+      <td>{{ x.d.id }}</td>
+      <td>{{ x.d.uploaded_at.replace('T', ' ') }}</td>
+      <td>{{ x.d.doc_type }}</td>
+      <td><a href="{{ url_for('document', doc_id=x.d.id) }}">{{ x.d.file_name }}</a></td>
+      <td>{{ x.dates }}</td>
+      <td>{{ x.vehicles }}</td>
+      <td><span class="tag {{ 'ok' if x.d.ocr_status == '완료' else 'err' if x.d.ocr_status == '인식실패' else 'warn' }}">{{ x.d.ocr_status }}</span></td>
+      <td class="r">{{ x.n }}</td>
+      <td class="r">{{ x.pending }}</td>
+      <td class="r">{% if x.errors %}<span class="tag err">{{ x.errors }}</span>{% else %}0{% endif %}</td>
+      <td>{{ x.d.uploaded_by }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="11" class="mute">등록된 문서가 없습니다.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

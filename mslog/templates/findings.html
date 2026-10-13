@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}오류 검증{% endblock %}
+{% block body %}
+<h1>오류 검증</h1>
+<div class="card">
+  <form method="get" class="row">
+    <select name="type"><option value="">유형 전체</option>
+      {% for t in order %}<option {{ 'selected' if t == ftype }}>{{ t }}</option>{% endfor %}</select>
+    <select name="status">
+      <option value="open" {{ 'selected' if status == 'open' }}>미처리</option>
+      <option value="resolved" {{ 'selected' if status == 'resolved' }}>처리됨</option>
+      <option value="auto_closed" {{ 'selected' if status == 'auto_closed' }}>자동 해소</option>
+      <option value="all" {{ 'selected' if status == 'all' }}>전체</option>
+    </select>
+    <input type="text" name="assignee" value="{{ assignee }}" placeholder="담당자">
+    <button class="sec">조회</button>
+    <span class="mute">{{ rows | length }}건</span>
+  </form>
+</div>
+<div class="card">
+<table>
+  <tr><th>유형</th><th>납품일자</th><th>차량</th><th>거래처</th><th>품목</th>
+      <th class="r">기준 수량</th><th class="r">비교 수량</th><th class="r">차이</th><th>내용</th><th>원본</th><th>담당자 배정 / 조치</th></tr>
+  {% for f in rows %}
+  <tr>
+    <td><span class="tag {{ 'err' if f.status == 'open' else 'mute' }}">{{ f.type }}</span></td>
+    <td>{{ f.delivery_date or '' }}</td><td>{{ f.vehicle_no or '' }}</td><td>{{ f.customer or '' }}</td><td>{{ f.item or '' }}</td>
+    <td class="r">{{ f.base_qty | comma }}</td><td class="r">{{ f.compare_qty | comma }}</td><td class="r">{{ f.diff | comma }}</td>
+    <td>{{ f.detail }}</td>
+    <td>{% for r in recmap.get(f.id, []) %}<a href="{{ url_for('document', doc_id=r.document_id) }}#r{{ r.id }}">{{ r.doc_type[:2] }}#{{ r.document_id }}</a> {% endfor %}</td>
+    <td>
+      {% if f.status == 'open' %}
+      <form method="post" action="{{ url_for('finding_assign', fid=f.id) }}" class="row" style="margin-bottom:4px">
+        <input type="text" name="assignee" value="{{ f.assignee or '' }}" size="7" placeholder="담당자"><button class="sec">배정</button>
+      </form>
+      <form method="post" action="{{ url_for('finding_resolve', fid=f.id) }}" class="row">
+        <input type="text" name="resolution" placeholder="조치 결과(필수)" required><button>처리</button>
+      </form>
+      {% elif f.status == 'resolved' %}
+        <span class="mute">{{ f.resolution }} ({{ f.resolved_by }}, {{ (f.resolved_at or '').replace('T', ' ') }})</span>
+      {% else %}<span class="mute">데이터 수정/보완으로 해소됨</span>{% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="11" class="mute">해당하는 항목이 없습니다.</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

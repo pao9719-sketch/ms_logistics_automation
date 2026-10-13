@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}집계·엑셀 출력{% endblock %}
+{% block body %}
+<h1>실적 집계 및 엑셀 출력</h1>
+<div class="card">
+  <form method="get" class="row">
+    <label>기간 <input type="date" name="from" value="{{ d_from }}"> ~ <input type="date" name="to" value="{{ d_to }}"></label>
+    <button class="sec">조회</button>
+    <a class="btn" href="{{ url_for('export_xlsx', **{'from': d_from, 'to': d_to}) }}">엑셀 내려받기</a>
+  </form>
+  <p class="mute" style="margin-bottom:0">
+    ERP 입력 대상은 운행일지·계근표가 모두 있고 전부 검수 완료된 정상 건입니다. 오류·미검증 건은 엑셀의 '오류·미검증' 시트로 분리됩니다.
+  </p>
+</div>
+<div class="stats" style="margin-bottom:14px">
+  <div class="stat"><b>{{ total }}</b>ERP 입력 가능</div>
+  <a class="stat" href="{{ url_for('findings') }}"><b>{{ pend }}</b>오류·미검증</a>
+</div>
+<div class="card">
+  <table>
+    <tr><th>납품일자</th><th>차량번호</th><th>거래처</th><th>사업장</th><th>품목</th><th class="r">수량</th><th>단위</th></tr>
+    {% for r in rows %}
+    <tr><td>{{ r.date }}</td><td>{{ r.vehicle }}</td><td>{{ r.customer_name }}</td><td>{{ r.site }}</td>
+        <td>{{ r.item }}</td><td class="r">{{ r.quantity | comma }}</td><td>{{ r.unit }}</td></tr>
+    {% else %}
+    <tr><td colspan="7" class="mute">출력 가능한 검증 완료 건이 없습니다.</td></tr>
+    {% endfor %}
+  </table>
+  {% if total > rows | length %}<p class="mute">미리보기는 {{ rows | length }}건까지만 표시합니다. 전체는 엑셀에서 확인하세요.</p>{% endif %}
+</div>
+{% endblock %}

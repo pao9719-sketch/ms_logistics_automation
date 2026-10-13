@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}검수 #{{ d.id }}{% endblock %}
+{% block body %}
+{% macro fld(r, unc, name, type='text', width='') %}
+  <label>{{ FIELD_LABELS[name] }}{% if name in unc %} <b style="color:var(--warn)">· 불확실</b>{% endif %}
+    <input type="{{ type }}" name="{{ name }}" value="{{ r[name] | num if name in ('quantity','gross_weight','tare_weight') else (r[name] or '') }}"
+           class="{{ 'unc' if name in unc }}" {{ 'inputmode=decimal' if name in ('quantity','gross_weight','tare_weight') }}></label>
+{% endmacro %}
+
+<h1>#{{ d.id }} {{ d.doc_type }} · {{ d.file_name }}
+  <span class="tag {{ 'ok' if d.ocr_status == '완료' else 'err' if d.ocr_status == '인식실패' else 'warn' }}">{{ d.ocr_status }}</span></h1>
+{% if d.ocr_message %}<div class="flash {{ 'error' if d.ocr_status != '완료' else '' }}">{{ d.ocr_message }}</div>{% endif %}
+
+<div class="grid split">
+  <div class="card viewer">
+    <h2>원본</h2>
+    {% if d.source_kind == 'image' %}
+      <a href="{{ url_for('file', doc_id=d.id) }}" target="_blank"><img src="{{ url_for('file', doc_id=d.id) }}" alt="원본 이미지"></a>
+      <div class="mute">클릭하면 새 탭에서 원본 크기로 열립니다.</div>
+    {% elif d.source_kind == 'pdf' %}
+      <iframe src="{{ url_for('file', doc_id=d.id) }}"></iframe>
+    {% else %}
+      <a class="btn sec" href="{{ url_for('file', doc_id=d.id) }}">엑셀 원본 내려받기</a>
+    {% endif %}
+  </div>
+
+  <div>
+    {% for x in recs %}{% set r = x.r %}
+    <div class="card" id="r{{ r.id }}" {% if r.review_status == "제외" %}style="opacity:.6"{% endif %}>
+      <div class="row" style="margin-bottom:8px">
+        <strong>기록 #{{ r.id }}</strong>
+        {% if r.review_status == '검수완료' %}<span class="tag ok">검수완료 · {{ r.reviewed_by }}</span>
+        {% elif r.review_status == '제외' %}<span class="tag mute">제외</span>
+        {% else %}<span class="tag warn">미검수</span>{% endif %}
+        {% if x.status %}<span class="tag err">{{ x.status }}</span>{% endif %}
+        {% if r.confidence is not none and r.confidence < 1 %}<span class="mute">신뢰도 {{ '%.0f' % (r.confidence * 100) }}%</span>{% endif %}
+        {% if r.customer_raw and not r.customer_code %}<span class="tag warn">거래처 미매칭</span>{% endif %}
+      </div>
+
+      <form method="post" action="{{ url_for('record_save', rid=r.id) }}">
+        <div class="fields">
+          {{ fld(r, x.unc, 'delivery_date') }}
+          {{ fld(r, x.unc, 'vehicle_no') }}
+          <label>거래처(문서 표기){% if 'customer_raw' in x.unc %} <b style="color:var(--warn)">· 불확실</b>{% endif %}
+            <input type="text" name="customer_raw" value="{{ r.customer_raw or '' }}" class="{{ 'unc' if 'customer_raw' in x.unc }}"></label>
+          <label>거래처 코드(기준정보)
+            <select name="customer_code">
+              <option value="">(미지정)</option>
+              {% for c in customers %}<option value="{{ c.code }}" {{ 'selected' if c.code == r.customer_code }}>{{ c.name }} ({{ c.code }})</option>{% endfor %}
+            </select></label>
+          {{ fld(r, x.unc, 'site') }}
+          <label>품목{% if 'item' in x.unc %} <b style="color:var(--warn)">· 불확실</b>{% endif %}
+            <input type="text" name="item" list="items" value="{{ r.item or '' }}" class="{{ 'unc' if 'item' in x.unc }}"></label>
+          {{ fld(r, x.unc, 'quantity') }}
+          {{ fld(r, x.unc, 'unit') }}
+          {% if d.doc_type == '계근표' %}
+            {{ fld(r, x.unc, 'gross_weight') }}
+            {{ fld(r, x.unc, 'tare_weight') }}
+          {% endif %}
+          {{ fld(r, x.unc, 'note') }}
+        </div>
+        <div class="row" style="margin-top:10px">
+          {% if r.review_status != '제외' %}
+            <button>저장</button>
+            <button formaction="{{ url_for('record_approve', rid=r.id) }}" class="sec">{{ '재승인' if r.review_status == '검수완료' else '검수 완료' }}</button>
+            <span style="flex:1"></span>
+            <input type="text" name="reason" placeholder="제외 사유">
+            <button formaction="{{ url_for('record_exclude', rid=r.id) }}" class="danger" formnovalidate>제외</button>
+          {% endif %}
+        </div>
+      </form>
+      {% if r.review_status == '제외' %}
+        <form method="post" action="{{ url_for('record_restore', rid=r.id) }}"><button class="sec">복원</button></form>
+      {% endif %}
+
+      {% for f in x.findings %}
+        <div class="mute" style="margin-top:6px">
+          <span class="tag {{ 'err' if f.status == 'open' else 'mute' }}">{{ f.type }} · {{ {'open':'미처리','resolved':'처리됨','auto_closed':'자동해소'}[f.status] }}</span>
+          {{ f.detail }}{% if f.resolution %} → <em>{{ f.resolution }} ({{ f.resolved_by }})</em>{% endif %}
+        </div>
+      {% endfor %}
+
+      <details style="margin-top:8px"><summary>AI 인식 원본값 / 수정 이력 ({{ x.edits | length }})</summary>
+        <div class="mute">AI 원본: {{ x.ai | tojson }}</div>
+        {% if x.edits %}
+        <table>
+          <tr><th>일시</th><th>항목</th><th>수정 전</th><th>수정 후</th><th>담당자</th></tr>
+          {% for e in x.edits %}
+          <tr><td>{{ e.edited_at.replace('T', ' ') }}</td><td>{{ FIELD_LABELS.get(e.field, e.field) }}</td>
+              <td>{{ e.old_value }}</td><td>{{ e.new_value }}</td><td>{{ e.editor }}</td></tr>
+          {% endfor %}
+        </table>
+        {% endif %}
+      </details>
+    </div>
+    {% else %}
+      <div class="card mute">기록이 없습니다. 원본을 보고 아래에서 행을 추가해 입력하세요.</div>
+    {% endfor %}
+
+    <div class="row">
+      <form method="post" action="{{ url_for('record_add', doc_id=d.id) }}"><button class="sec">+ 행 추가(수동 입력)</button></form>
+      {% if not recs and d.source_kind != 'excel' %}
+        <form method="post" action="{{ url_for('reocr', doc_id=d.id) }}"><button class="sec">AI 재인식</button></form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<datalist id="items">{% for i in items %}<option value="{{ i.name }}">{% endfor %}</datalist>
+{% endblock %}
